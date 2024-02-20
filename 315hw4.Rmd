@@ -1,0 +1,163 @@
+---
+title: "hw4"
+author: "Mason Reed"
+date: "2024-02-19"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(mosaic)
+library(ggplot2)
+gas_prices = read.csv('gasprices.csv')
+sclass = read.csv('sclass.csv')
+nbc = read.csv('nbc_pilotsurvey.csv')
+ebay = read.csv('ebay.csv')
+```
+
+# Gas Prices
+
+### A: Gas Prices with Competition
+```{r}
+boot_gascomp = do(10000)*diffmean(Price ~ Competitors,data=resample(gas_prices))
+gascomp_cint = confint(boot_gascomp,level = .95)
+```
+
+Claim: The theory that gas prices are higher for stations with other gas stations in sight is not supported by the sample of gas stations taken.
+
+Evidence: The mean difference in gas prices between stations with competitors in sight and those without competitors in sight is likely between \$ `r round(gascomp_cint[2],4)` and \$`r round(gascomp_cint[3],4)`.
+
+Conclusion: Since this interval captures zero, the claim that gas prices are higher if they are in sight of other gas stations is not supported by this data.
+
+### B: Gas Prices In Richer Areas
+```{r}
+boot_gasIncome = do(10000)*lm(Price ~ Income,data=resample(gas_prices))
+gasIncome_cint = confint(boot_gasIncome,level=.95)
+```
+
+Claim: The theory that gas prices are higher in richer areas has some evidence according to the sample data. 
+
+Evidence: Using a bootstrapped confidence interval on a linear regression model between price and income, the expected gas price increases by about \$ `r round(gasIncome_cint$lower[2],7)` to \$ `r round(gasIncome_cint$upper[2],7)` for a dollar increase in the area's median income.
+
+Conclusion: Since this interval doesn't capture 0 there is statistically significant evidence that richer areas have higher prices, but since the increase is so small there is doubt on the strength of this relationship.
+
+### C: Gas Stations At Stoplights
+```{r}
+boot_gasStops = do(10000)*diffmean(Price ~ Stoplight, data=resample(gas_prices))
+gasStops_cint = confint(boot_gasStops, level = .95)
+```
+
+Claim: The theory that gas stations at stoplights charge more is not supported by the sample data.
+
+Evidence: Using 10000 bootstrap samples to create a confidence interval of the difference in mean prices between stations at stoplights and those not at stoplights, it's 95% likely that the mean difference in gas prices is between \$ `r round(gasStops_cint[2],4)` and `r round(gasStops_cint[3],4)`.
+
+Conclusion: This interval captures zero so there is no statistically significant difference between gas station prices at stoplights and those not at stoplights. 
+
+### D: Gas Stations With Direct Highway Access
+```{r}
+boot_gasHighway = do(10000)*diffmean(Price ~ Highway, data=resample(gas_prices))
+gasHighway_cint = confint(boot_gasHighway,level = .95)
+highwayLow = round(gasHighway_cint[2],4)
+highwayHi = round(gasHighway_cint[3],4)
+```
+
+Claim: The theory that gas stations with direct highway access have higher prices than those without direct highway access is supported by the sample data. 
+
+Evidence: After bootstrapping 10000 sample mean differences between gas prices at stations with highway access and those without, and making a 95% confidence interval from this data, it's found that the mean difference between gas stations prices with highway access and those without is between 0.0101 and 0.0821.
+
+Conclusion: Since this interval doesn't contain zero, the difference is statistically significant, and gas stations with direct access to the highway seem to have higher gas prices.
+
+### E: Shell Charges More?
+```{r}
+gas_prices = mutate(gas_prices, isShell = Brand == 'Shell' )
+boot_gasShell = do(10000)*diffmean(Price ~ isShell, data=resample(gas_prices))
+shell_cint = confint(boot_gasShell, level=.95)
+```
+
+Claim: The theory that Shell gas stations charge more than non-Shell gas stations is not supported by the data. 
+
+Evidence: After bootstrapping 10000 sample mean differences in prices between Shell and non-Shell gas stations, I found a 95% confidence interval for the mean difference in prices. The difference in prices is likely between \$ -.0009 and \$ .0652. This interval captures zero, deeming the mean difference in price as not statistically significant.
+
+Conclusion: Since there is not a statistically significant mean difference in prices between Shell and non-Shell stations, the theory is not supported by the data.
+
+
+# 2. S-Class Mercedes
+
+### A: 2011 Mercedes 63 AMGs
+```{r}
+amgs63_2011 = filter(sclass, year == 2011 & trim == "63 AMG")
+amg_boot = do(10000)*mean(mileage ~ condition, data=resample(amgs63_2011))
+amg_cint = confint(amg_boot, level = .95)
+```
+
+The confidence interval found for the average mileage of 2011 Mercedes 63 AMGs that hit the used market estimates mean mileage for these used AMGs to be between `r format(round(amg_cint$lower[2]),scientific = FALSE)` to `r format(round(amg_cint$upper[2]),scientific = FALSE)`.
+
+### B: 2014 Mercedes 550
+```{r}
+mercedes550s = filter(sclass, year == 2014 & trim == '550')
+mercedes550s = mutate(mercedes550s, isBlack = color == 'Black')
+boot_550s = do(10000)*prop(~isBlack,data=resample(mercedes550s))
+cint_550s = confint(boot_550s,level = .95)
+```
+
+The proportion of black Mercedes 550s is likely between `r round(cint_550s[2],3)` to `r round(cint_550s[3],3)`.
+
+# 3. NBC Pilot Shows
+
+### A: Ed or Earl
+```{r}
+ed_Earl = filter(nbc, Show == 'Living with Ed' | Show == 'My Name is Earl')
+earl_boot = do(10000)*diffmean(Q1_Happy~Show,data=resample(ed_Earl))
+earl_cint = confint(earl_boot,level = .95)
+```
+
+Question: The question of whether the show 'Living with Ed' or 'My Name is Earl' makes viewers happier can be answered statistically by looking at a confidence interval of the mean differences in viewer's response to the happiness question of the survey.
+Approach: By bootstrapping and finding a difference in mean happiness for 10000 resamples of the survey data and then deriving a 95% confidence interval from these means, I found that the mean difference between happiness scores likely lies between -0.398 and 0.102.
+Conclusion: Since this interval contains zero the survey data does not show statistically significant evidence that one show make viewers happier.
+
+### B: The Biggest Loser And The Apprentice
+```{r}
+bigLoser_appr = filter(nbc, Show == 'The Biggest Loser' | Show == 'The Apprentice: Los Angeles')
+boot_bigLose = do(10000)*diffmean(Q1_Annoyed~Show,data=resample(bigLoser_appr))
+conf_bigLose = confint(boot_bigLose, level = .95)
+```
+
+Question: The question of whether the show "The Biggest Loser" or "The Apprentice: Los Angeles" makes viewers more annoyed can be analyzed with the survey data. 
+
+Approach: Bootstrapping 10000 samples and finding the difference in mean annoyance survey scores allows us to make a 95% confidence interval of where the actual mean annoyance score lies. For my samples, I found that the mean difference in annoyance scores between The Apprentice and The Biggest Loser lies between -.522 and -.013.
+
+Conclusion: Since this interval doesn't capture zero there is statistically significant evidence that The Apprentice: Los Angeles has higher annoyance scores.
+
+### C: Dancing With The Stars is Confusing?
+```{r}
+dancing_w_stars = filter(nbc, Show == "Dancing with the Stars")
+dancing_w_stars = mutate(dancing_w_stars, isConfused = Q2_Confusing >= 4)
+dance_boot = do(10000)*prop(~isConfused, data=resample(dancing_w_stars))
+dance_cint = confint(dance_boot,level = .95)
+```
+
+Question:  What proportion of American TV watchers would we expect to give a response of 4 or greater to the “Q2_Confusing” question?
+
+Approach: By bootstrapping 10000 resamples of the survey data and finding the proportion that responded to the Q2 confusing question with a score of 4 or higher, we can find a 95% confidence interval for the proportion of American TV watchers that would respond with a confusion score of 4 or higher. The interval from my samples found that the proportion likely lies within the range of 0.044 and 0.116.
+
+Conclusion: From the interval found, we can expect the proportion of American TV watchers to give a response of 4 or greater to the Q2 Confusing question to be between 0.044 and 0.116. The interval I found centers at a proportion of 0.077 which could make for a reasonable guess of the actual proportion.
+
+# 4. Ebay
+```{r}
+boot_ebay = do(10000)*diffmean(rev_ratio ~ adwords_pause,data=resample(ebay))
+ebay_conf = confint(boot_ebay,level=.95)
+```
+
+Question: Does Paid Search Advertising Create Extra Revenue For Ebay?
+
+Approach: First, bootstrap 10000 resamples of the Ebay Experiment data set and find the differences in mean revenue ratio, revenue before/ revenue after, between DMAs with and without paid advertisements paused. Then use these bootstrapped differences to form a 95% confidence interval of the mean revenue ratio differences. The confidence interval from my samples found that the differences in mean revenue ratios between DMAs that stopped paid advertising and those that continued are between -0.091 and -0.013.
+
+Conclusion: The Ebay experiment data supports that paid search creates extra revenue for Ebay since the interval of differences in mean revenue ratio, -0.091 to -0.013. does not capture zero and is negative. The differences were calculated with the mean for continued advertising being subtracted from the mean revenue ratio of those discontinuing, so a negative interval favors paid advertising.
+
+Github: https://github.com/masoncancode/315hw4
+
+
